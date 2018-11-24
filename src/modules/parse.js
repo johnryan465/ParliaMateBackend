@@ -7,12 +7,13 @@ class PrintBoi {
 		this._date = date;
 		this.times = [];
 		this.speakers = [];
+		this.mps = {};
 		this.rawTitle = title;
 	}
 
 	get rawLines() {
 		if (this._rawLines) return this._rawLines;
-		return this.raw.match(/\n\n/g)
+		return this.raw.split(/\r\n\r\n/g)
 	}
 
 	get debate() {
@@ -28,25 +29,6 @@ class PrintBoi {
 		return this.rawLines.splice(1)
 	}
 
-	get syntax() {
-		if (this._syntax) return this._syntax;
-		let syntax = this.lines.map(line => {
-			if (/([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(line)) return this.time(line)
-			if (/\n/.test(line)) {
-				let a = this.line.split(/\n/);
-				this.speaker(a[0]);
-				return this.content(line);
-			}
-			return this.content(line);
-		});
-		for (let i = 0; i < syntax.length; i++) {
-			if (syntax[i] === null || syntax[i] === undefined) {
-				syntax.splice(i, 1);
-				i--;
-			}
-		}
-	}
-
 	get date() {
 		return new Date(this._date);
 	}
@@ -58,10 +40,41 @@ class PrintBoi {
 	}
 
 	speaker(line) {
-		let name = line.match(/([\w\s\-.]+|Hon. Members)(?:\s+\((\w\s,)\)\s+\((\w)))?$/);
-		let content = "";
-		this.speakers.push({name, title, party, content})
+		let parts = line.match(/([\w\s\-.]+|Hon\. Members)(?:\s*\(([\w\s\,]+)\)\s+\(([\w\/\-]+))?/);
+		if (!parts) {
+			console.error(line);
+			return null;
+		};
+		let [, name, constituency, party] = parts;
+		if (constituency && !party) {
+			title = constituency
+			constituency = null;
+		}
+		if (name && constiuency) this.mps[name] = {name, title, party, constituency}
+		else {
+			title = this.mps[name].title;
+			party = this.mps[name].party;
+			consitutency = this.mps[name].constituency;
+		}
+		this.speakers.push({name, title, party, constituency, "content": ""})
 		return null;
+	}
+
+	content(line) {
+		this.speakers[this.speakers.length - 1] += line + "\n";
+	}
+
+	run() {
+		for (let l of this.lines) {
+			if (/([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(l)) return this.time(l)
+			if (/\r\n/.test(l)) {
+				let a = l.split(/\r\n/);
+				console.log(a);
+				this.speaker(a[0]);
+				return this.content(a[1]);
+			}
+			return this.content(l);
+		};
 	}
 
 }
@@ -72,12 +85,18 @@ fs.readdir(path, (err, files) => {
 	if (err) return console.error(err);
 	for (let f of files) {
 		if (!f.endsWith(".txt")) continue;
-		let words = f.split(/\s+/g);
+		let words = f.match(/[^\s]+/g);
 		let date = words.pop();
-		let event = require(path + f + ".txt");
-		new PrintBoi(event, date, words.join("").toLowerCase());
-	});
+		fs.readFile(path + f, (err, data) => {
+			if (err) throw err;
+			//console.log(date, words.join("").toLowerCase());
+			let text = new PrintBoi(data.toString(), date, words.join("").toLowerCase());
+			text.run();
+			//console.log(text.lines);
+			console.log(text.speakers);
+		  });
+		return;
+	};
 });
-console.log(PrintBoi);
 
 module.exports = PrintBoi;
