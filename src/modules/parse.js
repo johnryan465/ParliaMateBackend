@@ -32,7 +32,11 @@ class PrintBoi {
 		if (this._syntax) return this._syntax;
 		let syntax = this.lines.map(line => {
 			if (/([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(line)) return this.time(line)
-			if (/\n/.test(line)) return this.speaker(line);
+			if (/\n/.test(line)) {
+				let a = this.line.split(/\n/);
+				this.speaker(a[0]);
+				return this.content(line);
+			}
 			return this.content(line);
 		});
 		for (let i = 0; i < syntax.length; i++) {
@@ -50,11 +54,14 @@ class PrintBoi {
 	time(line) {
 		let [h, m] = line.match(/(?:[0-1][0-9]|2[0-3]):([0-5][0-9]):([0-9][0-9])/);
 		this.times.push(h + ":" + m);
+		return null;
 	}
 
 	speaker(line) {
-		let name = line.match(/\w+[\($]/)
-		this.speakers.push({name, title, })
+		let name = line.match(/([\w\s\-.]+|Hon. Members)(?:\s+\((\w\s,)\)\s+\((\w)))?$/);
+		let content = "";
+		this.speakers.push({name, title, party, content})
+		return null;
 	}
 
 }
