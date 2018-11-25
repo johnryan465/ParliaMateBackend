@@ -1,15 +1,19 @@
 const fs = require("fs");
-const DataManager = require("./datamanager.js");
+
+let dates = {};
 
 class PrintBoi {
 
 	constructor(raw, date, title) {
 		this.raw = raw;
-		this._date = date;
+		this.date = date;
 		this.times = [];
 		this.speakers = [];
 		this.mps = {};
 		this.rawTitle = title;
+		if (dates[this.date] !== undefined) ++dates[this.date];
+		else dates[this.date] = 0;
+		this.order = dates[this.date];
 	}
 
 	get rawLines() {
@@ -30,13 +34,23 @@ class PrintBoi {
 		return this.rawLines.slice(1)
 	}
 
-	get date() {
-		let date = (new Date(this._date + "T" + this._time + ":00Z")).getTime();
+	get timestamp() {
+		let date = (new Date(this.date + "T" + this._time + ":00Z")).getTime();
 		return date;
 	}
 
 	get _time() {
 		return this.times[0] || "00:00";
+	}
+/*
+	get order () {
+		if (this._order) return this._order;
+		if (dates[this._date] !== undefined) return ++dates[this._date];
+		else return dates[this._date] = 0;
+	}*/
+
+	get index () {
+		return this.date + "-" + this.order;
 	}
 
 	time(line) {
@@ -100,24 +114,45 @@ class PrintBoi {
 
 }
 
-class Format {
+class Debates {
 	constructor(parse) {
+		this.index = parse.index;
 		this.name = parse.debate;
-		this.date = parse._date;
-		this.time = parse._time,
-		this.mps = parse.mps,
-		this.times = parse.time,
-		this.speakers = parse.speakers,
-		this._date = parse.date;
+		this.date = parse.date;
+		this.time = parse._time;
+		this.timestamp = parse.timestamp;
+		this.order = parse.order;
 		//console.log(parse.debate, parse._date);
 	}
 }
 
-const input = "../data/tmp/";
-const output = "../debates/"
+class MPs {
+	constructor(parse) {
+		this.index = parse.index;
+		this.mps = parse.mps;
+	}
+}
+
+class Speeches {
+	constructor(parse, i) {		
+		this.index = parse.index + "-" + i;
+		this.debate = parse.index;
+		this.name = parse.speakers[i].name;
+		this.party = parse.speakers[i].party;
+		this.title = parse.speakers[i].title;
+		this.constituency = parse.speakers[i].consitutency;
+		this.content = parse.speakers[i].content;
+		this.order = parse.order;
+		//console.log(parse.debate, parse._date);
+	}
+}
+
+const input = "../data/Bills/";
+const output = ["debates", "speeches", "speakers"];
 
 fs.readdir(input, (err, files) => {
-	let data = [], csv = "name,date,time,timestamp";
+	format = {};
+	format.debates = {}, format.speeches = {}, format.speakers = {}, csv = "name,date,time,timestamp";
 	//console.log(data);
 	if (err) return console.error(err);
 	let i = 0;
@@ -130,21 +165,20 @@ fs.readdir(input, (err, files) => {
 		//console.log(date, words.join("").toLowerCase());
 		let parse = new PrintBoi(d.toString().replace(/\r/g, ""), date, words.join("").toLowerCase());
 		parse.run();
-		//console.log("lines", text.lines);
-		//console.log("times", text.times);
-		//console.log(text.lines);
-		//console.log("speakers", text.speakers);
-		if (parse.date) {
-			let format = new Format(parse);
-			fs.writeFileSync(output + i + ".json", JSON.stringify(format, null, 4));
-			let line = "\"" + i + "\",\"" + format.name + "\",\"" + format.date + "\",\"" + format.time + "\",\"" + format._date + "\"\n";
-			console.log(line);
-			csv += line;
-			i++;
+		//console.log(new Date(parse.date).valueOf())
+		if (!isNaN(new Date(parse.date).valueOf() === "number")) {
+			console.log('index', parse.index, 'debate', parse.debate, 'date', new Date(parse.date).valueOf());
+			format.debates[parse.index] = new Debates(parse);
+			format.speakers[parse.index] = new MPs(parse);
+			for (let i = 0; i < parse.speakers.length; i++) {
+				format.speeches[parse.index + "-" + i] = new Speeches(parse, i)
+			}
 		};
 	};
 	//data = data.sort((a, b) => b._date - a._date);
-	fs.writeFileSync("./index.csv", csv);
+	for (let o of output) {
+		fs.writeFileSync("../data/" + o + ".json", JSON.stringify(format[o], null, 4));
+	}
 	//console.log(data);
 	//DataManager.setData(data);
 });
