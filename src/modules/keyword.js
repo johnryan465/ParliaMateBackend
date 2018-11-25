@@ -48,4 +48,5 @@ class KeywordBoi {
 
 }
 
-//console.log(KeywordBoi.getIncidenceByWord("hello"));
+//
+console.log(KeywordBoi.getIncidenceByWord("hello"));
