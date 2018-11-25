@@ -1,4 +1,5 @@
 const fs = require("fs");
+const DataManager = require("./datamanager.js");
 
 class PrintBoi {
 
@@ -13,7 +14,7 @@ class PrintBoi {
 
 	get rawLines() {
 		if (this._rawLines) return this._rawLines;
-		return this.raw.split(/\r\n\r\n/g)
+		return this.raw.split(/\n\n/g)
 	}
 
 	get debate() {
@@ -21,20 +22,25 @@ class PrintBoi {
 		let debate = this.rawLines.shift();
 		let d = debate.split(/\s+/).join("").toLowerCase();
 		if (d !== this.rawTitle) console.error(d, this.rawTitle);
-		return debate;
+		return debate.trim();
 	}
 
 	get lines() {
 		if (this._lines) return this._lines;
-		return this.rawLines.splice(1)
+		return this.rawLines.slice(1)
 	}
 
 	get date() {
-		return new Date(this._date);
+		let date = (new Date(this._date + "T" + this._time + ":00Z")).getTime();
+		return date;
+	}
+
+	get _time() {
+		return this.times[0] || "00:00";
 	}
 
 	time(line) {
-		let [h, m] = line.match(/(?:[0-1][0-9]|2[0-3]):([0-5][0-9]):([0-9][0-9])/);
+		let [, h, m] = line.match(/([0-1][0-9]|2[0-3]):([0-5][0-9]):([0-9][0-9])/);
 		this.times.push(h + ":" + m);
 		return null;
 	}
@@ -46,57 +52,101 @@ class PrintBoi {
 			return null;
 		};
 		let [, name, constituency, party] = parts;
+		name = name.trim();
+		let title = undefined;
 		if (constituency && !party) {
 			title = constituency
 			constituency = null;
 		}
-		if (name && constiuency) this.mps[name] = {name, title, party, constituency}
-		else {
+		if (this.mps[name]) {
 			title = this.mps[name].title;
 			party = this.mps[name].party;
-			consitutency = this.mps[name].constituency;
+			constituency = this.mps[name].constituency;
+		} else this.mps[name] = {
+			name,
+			title,
+			party,
+			constituency
 		}
-		this.speakers.push({name, title, party, constituency, "content": ""})
+		this.speakers.push({
+			name,
+			title,
+			party,
+			constituency,
+			"content": ""
+		});
+		//console.log(this.speakers);
 		return null;
 	}
 
 	content(line) {
-		this.speakers[this.speakers.length - 1] += line + "\n";
+		if (this.speakers.length === 0) this.speakers.push({
+			"content": line + "\n"
+		})
+		this.speakers[this.speakers.length - 1].content += line + "\n";
 	}
 
 	run() {
 		for (let l of this.lines) {
-			if (/([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(l)) return this.time(l)
-			if (/\r\n/.test(l)) {
-				let a = l.split(/\r\n/);
-				console.log(a);
+			//console.log(l, /([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(l), /\n/.test(l));
+			if (/([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-9][0-9]/.test(l)) this.time(l);
+			else if (/\n/.test(l)) {
+				let a = l.split(/\n/);
 				this.speaker(a[0]);
-				return this.content(a[1]);
-			}
-			return this.content(l);
+				this.content(a[1]);
+			} else this.content(l);
 		};
 	}
 
 }
 
-const path = "../data/";
+class Format {
+	constructor(parse) {
+		this.name = parse.debate;
+		this.date = parse._date;
+		this.time = parse._time,
+		this.mps = parse.mps,
+		this.times = parse.time,
+		this.speakers = parse.speakers,
+		this._date = parse.date;
+		//console.log(parse.debate, parse._date);
+	}
+}
 
-fs.readdir(path, (err, files) => {
+const input = "../data/tmp/";
+const output = "../debates/"
+
+fs.readdir(input, (err, files) => {
+	let data = [], csv = "name,date,time,timestamp";
+	//console.log(data);
 	if (err) return console.error(err);
+	let i = 0;
 	for (let f of files) {
 		if (!f.endsWith(".txt")) continue;
 		let words = f.match(/[^\s]+/g);
-		let date = words.pop();
-		fs.readFile(path + f, (err, data) => {
-			if (err) throw err;
-			//console.log(date, words.join("").toLowerCase());
-			let text = new PrintBoi(data.toString(), date, words.join("").toLowerCase());
-			text.run();
-			//console.log(text.lines);
-			console.log(text.speakers);
-		  });
-		return;
+		let date = words.pop().replace(".txt", "");
+		let d = fs.readFileSync(input + f);
+		if (err) throw err;
+		//console.log(date, words.join("").toLowerCase());
+		let parse = new PrintBoi(d.toString().replace(/\r/g, ""), date, words.join("").toLowerCase());
+		parse.run();
+		//console.log("lines", text.lines);
+		//console.log("times", text.times);
+		//console.log(text.lines);
+		//console.log("speakers", text.speakers);
+		if (parse.date) {
+			let format = new Format(parse);
+			fs.writeFileSync(output + i + ".json", JSON.stringify(format, null, 4));
+			let line = "\"" + i + "\",\"" + format.name + "\",\"" + format.date + "\",\"" + format.time + "\",\"" + format._date + "\"\n";
+			console.log(line);
+			csv += line;
+			i++;
+		};
 	};
+	//data = data.sort((a, b) => b._date - a._date);
+	fs.writeFileSync("./index.csv", csv);
+	//console.log(data);
+	//DataManager.setData(data);
 });
 
 module.exports = PrintBoi;
