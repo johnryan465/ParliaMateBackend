@@ -53,7 +53,7 @@ class Alias {
 				speeches[i].speaker = f.index;
 				k++;
 			};*/
-			string += "\"" + speeches[i].index + ",\"" + speeches[i].debate + ",\"" + speeches[i].name + ",\"" + speeches[i].content.replace('"', "'") + ",\"" + speeches[i].order + ",\"" + speeches[i].speaker + ",\"\n";
+			string += "\"" + speeches[i].index + "\",\"" + speeches[i].debate + "\",\"" + speeches[i].name + "\",\"" + speeches[i].content.replace('"', "'").replace(/\n/g, "\\n") + "\",\"" + speeches[i].order + "\",\"" + speeches[i].speaker + "\"\n";
 			console.log(speeches[i].name, speeches[i].name, speeches[i].index);
 		}
 		fs.writeFileSync(path + "speeches.csv", string);
@@ -62,6 +62,4 @@ class Alias {
 }
 
 Alias.run();
-console.log(k);
-
 module.exports = Alias;

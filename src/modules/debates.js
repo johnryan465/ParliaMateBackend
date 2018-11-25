@@ -116,15 +116,20 @@ class PrintBoi {
 
 class Debates {
 	constructor(parse) {
-		this.index = parse.index;
+		if (!Array.isArray(dates[parse.date])) dates[parse.date] = [];
+		dates[parse.date].push(parse.debate);
+		let order = dates[parse.date].length;
+		this.index = parse.date + "-" + order;
 		this.name = parse.debate;
 		this.date = parse.date;
 		this.time = parse._time;
 		this.timestamp = parse.timestamp;
 		this.order = parse.order;
 		//console.log(parse.debate, parse._date);
+
 	}
 }
+
 
 class MPs {
 	constructor(parse) {
@@ -149,13 +154,13 @@ class Speeches {
 
 const input = "../data/Bills/";
 const output = ["debates", "speeches", "speakers"];
-
+let str = "";
 fs.readdir(input, (err, files) => {
 	format = {};
 	format.debates = {}, format.speeches = {}, format.speakers = {}, csv = "name,date,time,timestamp";
 	//console.log(data);
 	if (err) return console.error(err);
-	let i = 0;
+	let arr = [];
 	for (let f of files) {
 		if (!f.endsWith(".txt")) continue;
 		let words = f.match(/[^\s]+/g);
@@ -165,20 +170,29 @@ fs.readdir(input, (err, files) => {
 		//console.log(date, words.join("").toLowerCase());
 		let parse = new PrintBoi(d.toString().replace(/\r/g, ""), date, words.join("").toLowerCase());
 		parse.run();
+		arr.push(parse);
+	};
+	arr = arr.sort((a, b) => a.timestamp - b.timestamp);
+	for (let parse of arr) {
 		//console.log(new Date(parse.date).valueOf())
 		if (!isNaN(new Date(parse.date).valueOf() === "number")) {
-			console.log('index', parse.index, 'debate', parse.debate, 'date', new Date(parse.date).valueOf());
-			format.debates[parse.index] = new Debates(parse);
-			format.speakers[parse.index] = new MPs(parse);
-			for (let i = 0; i < parse.speakers.length; i++) {
-				format.speeches[parse.index + "-" + i] = new Speeches(parse, i)
-			}
+			console.log('index', parse.index, 'time', parse._time, 'debate', parse.debate, 'date', parse.timestamp);
+			let d = new Debates(parse);
+			str += '"' + Object.values(d).join('","') + '"\n';
+			format.debates[parse.index] = d;
+			//format.speakers[parse.index] = new MPs(parse);
+			//for (let i = 0; i < parse.speakers.length; i++) {
+			//	format.speeches[parse.index + "-" + i] = new Speeches(parse, i)
+			//}
 		};
 	};
-	//data = data.sort((a, b) => b._date - a._date);
+	//data = data.sort((a, b) => b._date - a._date); 
+	fs.writeFileSync("../data/debates.csv", str);
+	fs.writeFileSync("../data/debates.json", JSON.stringify(format.debates, null, 4));
+	/*
 	for (let o of output) {
 		fs.writeFileSync("../data/" + o + ".json", JSON.stringify(format[o], null, 4));
-	}
+	}*/
 	//console.log(data);
 	//DataManager.setData(data);
 });

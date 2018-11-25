@@ -1,5 +1,6 @@
 
 const fs = require('fs');
+const input = "../data/Votes/";
 
 class TallyVoteBoi {
 
@@ -33,12 +34,27 @@ class TallyVoteBoi {
     }
 
     static fromCSV(name) {
-
-        let str = this.everyFourth(fs.readFileSync(name + '.csv').toString());
+        let raw = fs.readFileSync(input + name).toString();
+        let str = raw //this.everyFourth(raw);
+        //console.log(str);
         return this.tallyVotes(this.getRows(str).splice(1).map(this.rowToObj))
 
     }
 
 }
 
-console.log(TallyVoteBoi.fromCSV('Commons 21-11-2018 Division No 264'))
+fs.readdir(input, (err, files) => {
+	if (err) return console.error(err);
+	let str = "", out;
+	for (let f of files) {
+        if (!f.endsWith(".csv")) continue;
+        let arr = f.match(/Division No ([0-9]{1,4})\.csv/);
+        if (arr === null) console.error(f);
+        str = arr[1];
+        let obj = Object.values(TallyVoteBoi.fromCSV(f)).slice(0, 2);
+        console.log(obj);
+        out += str + ',"' + obj[0] + '","' + obj[1] + '"\n'
+    };
+    console.log(out);
+    fs.writeFileSync("../data/votes.csv", out);
+});
